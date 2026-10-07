@@ -1059,6 +1059,11 @@ fn shortcuts_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String
     let mut capture = f.get("capture").and_then(Value::as_bool).unwrap_or(false);
     let mut message = f.get("message").and_then(Value::as_str).unwrap_or("").to_string();
     let items = shortcut_items(app);
+    // Menu path and command label as shown in the menus, in the UI language.
+    let shown = |id: &str, label: &str, path: &[String]| -> (Vec<String>, String) {
+        let lang = crate::i18n::current();
+        (path.iter().map(|p| crate::i18n::tr(lang, p).to_string()).collect(), crate::i18n::tr_id(lang, id, label).to_string())
+    };
     let eff = |overrides: &BTreeMap<String, String>, id: &str, def: &Option<String>| -> Option<String> {
         match overrides.get(id) {
             Some(s) if s.is_empty() => None,
@@ -1088,7 +1093,10 @@ fn shortcuts_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String
                 let clash: Vec<String> = items
                     .iter()
                     .filter(|(id, _, _, def)| *id != selected && eff(&overrides, id, def).as_deref().and_then(prefs::normalize_shortcut) == Some(sc.clone()))
-                    .map(|(_, label, path, _)| format!("{} › {}", path.join(" › "), label.trim_end_matches('…')))
+                    .map(|(id, label, path, _)| {
+                        let (path, label) = shown(id, label, path);
+                        format!("{} › {}", path.join(" › "), label.trim_end_matches('…'))
+                    })
                     .collect();
                 overrides.insert(selected.clone(), sc.clone());
                 message = if clash.is_empty() {
@@ -1106,14 +1114,16 @@ fn shortcuts_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String
         egui::Grid::new("shortcut-grid").num_columns(3).spacing([12.0, 3.0]).striped(true).show(ui, |ui| {
             for (id, label, path, def) in &items {
                 let cur = eff(&overrides, id, def);
-                let hay = format!("{} {} {}", path.join(" "), label, cur.clone().unwrap_or_default()).to_ascii_lowercase();
+                let (shown_path, shown_label) = shown(id, label, path);
+                // Match what is shown and the English name (commands are documented in English).
+                let hay = format!("{} {} {} {} {}", shown_path.join(" "), shown_label, path.join(" "), label, cur.clone().unwrap_or_default()).to_lowercase();
                 if !needle.is_empty() && !hay.contains(&needle) && !id.to_ascii_lowercase().contains(&needle) {
                     continue;
                 }
                 if tab == 0 && path.is_empty() && def.is_none() && cur.is_none() {
                     continue;
                 }
-                let top = path.first().cloned().unwrap_or_else(|| tl!("Other").into());
+                let top = shown_path.first().cloned().unwrap_or_else(|| tl!("Other").into());
                 if top != last_top {
                     ui.label(RichText::new(&top).font(crate::theme::semibold(12.5)).color(t.text));
                     ui.label("");
@@ -1121,7 +1131,10 @@ fn shortcuts_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String
                     ui.end_row();
                     last_top = top;
                 }
-                let name = if path.len() > 1 { format!("{} › {}", path[1..].join(" › "), label) } else { label.clone() };
+                let name = match shown_path.get(1..) {
+                    Some(rest) if !rest.is_empty() => format!("{} › {}", rest.join(" › "), shown_label),
+                    _ => shown_label,
+                };
                 let sel = selected == *id;
                 if ui.selectable_label(sel, RichText::new(format!("   {name}")).color(t.text_dim)).clicked() {
                     selected = id.clone();

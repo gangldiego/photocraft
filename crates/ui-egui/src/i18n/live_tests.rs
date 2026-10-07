@@ -176,6 +176,26 @@ fn preferences_preview_does_not_commit_until_applied_and_survives_reload() {
     });
 }
 
+#[test]
+fn keyboard_shortcuts_list_commands_in_the_selected_language() {
+    with_language(Lang::EN, || {
+        let mut h = harness();
+        h.state_mut().run("prefs.set", json!({"path": "interface.language", "value": "pt-br"})).expect("language");
+        h.step();
+        let ctx = h.ctx.clone();
+        let id = crate::menus::invoke(h.state_mut(), &ctx, "edit.keyboardShortcuts", json!({})).expect("dialog")["dialog"].as_u64().expect("id");
+        // Search matches the translated label and the English one.
+        for filter in ["salvar como", "save as"] {
+            h.state_mut().ui.dialog_mut(id).expect("shortcuts").fields.insert("filter".into(), json!(filter));
+            h.run_steps(3);
+            let text = drawn_text(&h);
+            assert!(text.iter().any(|text| text == "Arquivo"), "{filter}: the menu heading must be translated");
+            assert!(text.iter().any(|text| text.trim() == "Salvar como…"), "{filter}: the command must be translated: {text:?}");
+            assert!(!text.iter().any(|text| text.trim() == "Save As…"), "{filter}: no English command labels");
+        }
+    });
+}
+
 fn drawn_text(h: &egui_kittest::Harness<'_, PhotocraftApp>) -> Vec<String> {
     fn collect(shape: &egui::Shape, text: &mut Vec<String>) {
         match shape {
