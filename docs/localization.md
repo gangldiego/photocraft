@@ -19,6 +19,7 @@ contextual, command-ID and plural translations; missing entries fall back to Eng
 | Čeština | `cs` | one / few / other |
 | Deutsch | `de` | one / other |
 | Bahasa Indonesia | `id` | one form |
+| Português (Brasil) | `pt-br` | singular for 0 and 1 / plural for 2+ |
 
 Every non-English catalog covers the current menu labels, `tl!` literals, blend mode names,
 and generated preference labels. Tests enforce that coverage. This does not include every
@@ -36,7 +37,8 @@ documents, undo history and tools remain available throughout a language change.
 The existing preference store saves the selection for future launches. `auto` follows the
 native system locale; an unsupported code follows the same fallback. Regional tags such as
 `fr-CA`, `ko-KR` and `zh-CN` resolve to the corresponding registered catalog. Traditional and
-Simplified Chinese remain distinct.
+Simplified Chinese remain distinct. Every Portuguese locale (`pt`, `pt-BR`, `pt-PT`) uses the
+Brazilian Portuguese catalog.
 
 Agents use the existing `prefs.set` command through CLI, MCP or the desktop control channel:
 

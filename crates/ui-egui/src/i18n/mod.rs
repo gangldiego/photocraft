@@ -74,8 +74,13 @@ fn plural_fr(n: u64) -> usize {
     usize::from(n > 1)
 }
 
+/// Portuguese: 0 and 1 take the singular, everything else the plural.
+fn plural_pt(n: u64) -> usize {
+    usize::from(n > 1)
+}
+
 /// The registry. English first: it is the fallback and the source language.
-pub static LANGUAGES: [LangInfo; 11] = [
+pub static LANGUAGES: [LangInfo; 12] = [
     LangInfo { code: "en", name: "English", source: "", plural: plural_one_other, complete_menus: false, catalog: OnceLock::new() },
     LangInfo { code: "ja", name: "日本語", source: include_str!("ja.tsv"), plural: plural_none, complete_menus: true, catalog: OnceLock::new() },
     LangInfo {
@@ -93,6 +98,8 @@ pub static LANGUAGES: [LangInfo; 11] = [
     LangInfo { code: "id", name: "Bahasa Indonesia", source: include_str!("id.tsv"), plural: plural_none, complete_menus: true, catalog: OnceLock::new() },
     LangInfo { code: "ko", name: "한국어", source: include_str!("ko.tsv"), plural: plural_none, complete_menus: true, catalog: OnceLock::new() },
     LangInfo { code: "de", name: "Deutsch", source: include_str!("de.tsv"), plural: plural_one_other, complete_menus: true, catalog: OnceLock::new() },
+    // Brazilian Portuguese; `pt`, `pt-BR` and `pt-PT` locales all resolve here (see `candidates`).
+    LangInfo { code: "pt-br", name: "Português (Brasil)", source: include_str!("pt-br.tsv"), plural: plural_pt, complete_menus: true, catalog: OnceLock::new() },
 ];
 
 impl LangInfo {
@@ -173,6 +180,10 @@ fn candidates(tag: &str) -> Vec<String> {
         // Chinese by region when no script is given.
         let script = if parts.iter().any(|p| matches!(*p, "tw" | "hk" | "mo")) { "zh-hant" } else { "zh-hans" };
         out.insert(out.len() - 1, script.to_string());
+    }
+    if primary == "pt" && !out.iter().any(|c| c == "pt-br") {
+        // The only Portuguese catalog is Brazilian; other regions use it rather than English.
+        out.insert(out.len() - 1, "pt-br".to_string());
     }
     out
 }
@@ -429,6 +440,19 @@ mod tests {
         assert_eq!(tr(es, "Layer"), "Capa");
         assert_eq!(trn(es, 1, "{n} item", "{n} items"), "1 elemento");
         assert_eq!(trn(es, 3, "{n} item", "{n} items"), "3 elementos");
+    }
+
+    #[test]
+    fn brazilian_portuguese_resolves_and_pluralises() {
+        let pt = Lang::from_code("pt-br").expect("pt-br registered");
+        for tag in ["pt", "pt-BR", "pt_BR.UTF-8", "pt-PT", "pt_PT.UTF-8"] {
+            assert_eq!(lang_from_tag(tag), Some(pt), "{tag}");
+        }
+        assert_eq!(candidates("pt_PT"), ["pt-pt", "pt-br", "pt"]);
+        assert_eq!(tr(pt, "Layer"), "Camada");
+        assert_eq!(trn(pt, 0, "{n} item", "{n} items"), "0 item");
+        assert_eq!(trn(pt, 1, "{n} item", "{n} items"), "1 item");
+        assert_eq!(trn(pt, 2, "{n} item", "{n} items"), "2 itens");
     }
 
     #[test]
